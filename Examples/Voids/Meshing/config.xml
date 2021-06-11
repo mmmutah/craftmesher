@@ -1,0 +1,36 @@
+<crackMesher>
+ <stls>./stls</stls>
+ <binary>1</binary>
+<writeBinarySave></writeBinarySave>
+
+ <OriginalEdgeLength>1.0</OriginalEdgeLength>
+ <TetGenQualityMeasure>1.1/14</TetGenQualityMeasure>
+ <BackgroundSMeshQuality>1.5/8</BackgroundSMeshQuality>
+ <gradationScheme>2</gradationScheme>
+ <defectType>1</defectType>
+ <detectIslands>1</detectIslands>
+
+ <refinement>
+   <refinement_passes>1</refinement_passes>
+   <SurfaceTargetEdgeLength>0.5</SurfaceTargetEdgeLength>
+   <VolumeTargetEdgeLength>0.5</VolumeTargetEdgeLength>
+   <R0>2</R0>
+   <Rt>3</Rt>
+   <stl_refinement_zones>0</stl_refinement_zones>
+   <stl_refinement_zones_TetGenQualityMeasure>1.01/20</stl_refinement_zones_TetGenQualityMeasure>
+   <advancingCrackFile>./VoidList</advancingCrackFile>
+   <advCrackFileShrinkX>100</advCrackFileShrinkX>
+   <advCrackFileShrinkY>100</advCrackFileShrinkY>
+   <advCrackFileShrinkZ>100</advCrackFileShrinkZ>
+ </refinement>
+
+ <coarsening>
+   <coarsening_passes>8</coarsening_passes>
+   <SurfaceTargetEdgeLength>3.0</SurfaceTargetEdgeLength>
+   <VolumeTargetEdgeLength>3.0</VolumeTargetEdgeLength>
+   <EdgeSmoothing>2</EdgeSmoothing>
+   <RemoveHourglass>1</RemoveHourglass>
+   <Condense3>1</Condense3>
+ </coarsening>
+
+</crackMesher>

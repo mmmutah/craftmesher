@@ -1,0 +1,47 @@
+For this to work, you will need the following programs in your path:
+* python
+* tetgen
+
+Two examples of the mesh gradation tool are provided:
+1. A microstructure with a crack
+2. The same microstructure with 250 randomly placed voids
+
+To run the examples:
+1. cd in the terminal to the Meshing folder for the example you wish to run:
+	For example 1: Crack/Meshing/
+	For example 2: Voids/Meshing/
+2. Run with: bash mesh.sh
+3. Program settings can be modified in
+	For example 1: Crack/Meshing/config.xml
+	For example 2: Voids/Meshing/config.xml
+
+Settings in the config.xml file:
+<stls>: File path to the stl files
+<binary>: If stls are in binary format, set to 1, otherwise 0
+<writeBinarySave>: If you wish to iteratively check the paramters you will be using, set this to 1. This will write a pseudo-"savefile"
+				   which will save time during the STL loading step.
+<OriginalEdgeLength>: Nominal mesh edge length of the uniform input mesh (By default, this is 1)
+<TetGenQualityMeasure>: Quality measure for the final volume mesh. Maximum radius-edge ratio / minimum dihedral angle
+<BackgroundSMeshQuality>: Quality measure for the background volume mesh used to interpolate element size
+<gradationScheme>: How element sizes change within the refinement zone. If you want a constant size within the refinement zone, set to 2
+				   For a gradating size within the refinement zone, set to 1
+<defectType>: Set to 0 if the defect is a crack, to 1 if it is a void and to 2 if the model is a foam and grain boundary needs to be identified
+<detectIslands>: If you believe that there are internal voids / totally embedded grains in your model, set to 1. However, generating the 
+                 required input file for this switch requires the use of the voxel-based remeshing framework developed by Brian Phung
+<refinement_passes>: How many iterations of refinemnt is desired
+<SurfaceTargetEdgeLength>: Desired minimum edge length for the surface mesh ( = OriginalEdgeLength / 2^refinement_passes )
+<VolumeTargetEdgeLength>: Desired minimum edge length for the volume mesh
+<R0>: Radius of the refinement zone
+<Rt>: Radius of the transition zone
+<stl_refinement_zones>: Set to 0, NOT used anymore
+<stl_refinement_zones_TetGenQualityMeasure>: NOT used anymore
+<advancingCrackFile>: Filepath to the file of the list of crack front points or void centers
+<advCrackFileShrinkX>: Conversion factor along the X axis. Voxel model size / physical size
+<advCrackFileShrinkY>: Conversion factor along the Y axis. Voxel model size / physical size
+<advCrackFileShrinkZ>: Conversion factor along the Z axis. Voxel model size / physical size
+<coarsening_passes>: How many iterations of coarsening is desired
+<SurfaceTargetEdgeLength>: Desired maximum edge length for the surface mesh
+<VolumeTargetEdgeLength>: Desired maximum edge length for the volume mesh
+<EdgeSmoothing>: How many iterations of boundary edge smoothing is desired
+<RemoveHourglass>: If you want to remove sticking nodes, set to 1
+<Condense3>: If you want to condense unnecessary triangles, set to 1 

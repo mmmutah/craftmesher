@@ -1,0 +1,51 @@
+# General File Ignores
+crackMesher
+*.stl
+*.inp
+*.rpy*
+0*/
+*.vtk
+out*.txt
+*.png
+.settings
+/.DS_Store
+*.o
+*.log
+Makefile
+*.dirstamp
+
+#  http://www.gnu.org/software/automake
+configure
+m4
+Makefile.in
+/ar-lib
+/mdate-sh
+/py-compile
+/test-driver
+/ylwrap
+*.deps
+*.autotools
+
+# http://www.gnu.org/software/autoconf
+
+autom4te.cache
+/autoscan.log
+/autoscan-*.log
+/aclocal.m4
+/compile
+/config.guess
+/config.h.in
+/config.log
+/config.status
+/config.sub
+/configure.scan
+/depcomp
+/install-sh
+/missing
+/stamp-h1
+
+# Eclipse
+.cproject
+.project
+.settings/
+/Debug/
