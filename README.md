@@ -11,7 +11,7 @@ B.R. Phung, J. He, A.D. Spear. "A surface-mesh gradation tool for generating gra
 
 ## Prerequisites
 * Boost
-* Pytrhon
+* Python
 * TetGen
 
 ## Linux: autotools
