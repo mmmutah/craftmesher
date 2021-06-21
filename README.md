@@ -4,7 +4,22 @@ The crack and defect mesher is a tool written in C++ that is able to generate gr
 If you use this tool or its key elements in your publication, we kindly ask you cite the following publication:
 
 ```
-B.R. Phung, J. He, A.D. Spear. "A surface-mesh gradation tool for generating gradated tetrahedral meshes of microstructures with defects" Computational Materials Science XXX (2021) 110622.
+B.R. Phung, J. He, A.D. Spear. "A surface-mesh gradation tool for generating gradated tetrahedral meshes of microstructures with defects" Computational Materials Science 197 (2021) 110622.
+```
+
+```
+@article{PHUNG2021110622,
+  title = {A surface-mesh gradation tool for generating gradated tetrahedral meshes of microstructures with defects},
+  journal = {Computational Materials Science},
+  volume = {197},
+  pages = {110622},
+  year = {2021},
+  issn = {0927-0256},
+  doi = {https://doi.org/10.1016/j.commatsci.2021.110622},
+  url = {https://www.sciencedirect.com/science/article/pii/S0927025621003499},
+  author = {Brian R. Phung and Junyan He and Ashley D. Spear},
+  keywords = {Numerical simulation, Polycrystal, Finite element modeling, Short crack, Voids},
+}
 ```
 
 # INSTALL INSTRUCTIONS
