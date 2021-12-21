@@ -112,10 +112,16 @@ void enumerateStlFiles2(fs::path& folder, vector<fs::path>& out) {
 int main(int ac, char* av[]) {
 	string stlPath, cont_string, ref_string, advFilePath, settingsPath;
 
+	string version = "1.000";
+
+	ofstream logfile("mesh.log");
+
 	int binary, smesh_ref, smesh_coarsen = 0;
 	try {
 		po::options_description desc("Allowed options");
-		desc.add_options()("input-file", po::value<vector<string> >(),
+		desc.add_options()
+			("version", "output version")
+			("input-file", po::value<vector<string> >(),
 				"input file");
 		po::positional_options_description p;
 		p.add("input-file", -1);
@@ -125,6 +131,11 @@ int main(int ac, char* av[]) {
 				po::command_line_parser(ac, av).options(desc).positional(p).run(),
 				vm);
 		po::notify(vm);
+
+		if (vm.count("version")) {
+			cout << version << endl;
+			return 1;
+		}
 
 		if (vm.count("input-file")) {
 			settingsPath = vm["input-file"].as<vector<string> >()[0];
@@ -138,32 +149,34 @@ int main(int ac, char* av[]) {
 		return 1;
 	}
 
+
+
 	programSettings settings;
 	try {
 		settings.loadData(settingsPath);
 		stlPath = settings.stlsPath;
-		cout << "Stl-path is: " << stlPath << "\n";
+		logfile << "Stl-path is: " << stlPath << "\n";
 		binary = settings.ascii2binaryConversion;
 		if (binary == 1) {
-			cout << "Binary to ascii enabled." << "\n";
+			logfile << "Binary to ascii enabled." << "\n";
 		}
 		smesh_ref = settings.refinementPasses;
 		if (smesh_ref > 0) {
-			cout << "Surface mesh refinement enabled: " << smesh_ref
+			logfile << "Surface mesh refinement enabled: " << smesh_ref
 					<< " passes.\n";
 		}
 		smesh_coarsen = settings.coarseningPasses;
 		if (smesh_coarsen > 0) {
-			cout << "Surface mesh coarsening enabled: " << smesh_coarsen
+			logfile << "Surface mesh coarsening enabled: " << smesh_coarsen
 					<< " passes.\n";
 		}
 
 		cont_string = settings.continuumQuality;
-		cout << "Tetgen quality argument: " << cont_string << "\n";
+		logfile << "Tetgen quality argument: " << cont_string << "\n";
 
 		advFilePath = settings.advancingCrackPath;
 		ref_string = cont_string;
-		cout << "File path for AdvancingCrack: " << advFilePath << "\n";
+		logfile << "File path for AdvancingCrack: " << advFilePath << "\n";
 
 	} catch (std::exception& e) {
 		cout << "Failed at reading input file: " << e.what() << "\n";
@@ -180,7 +193,7 @@ int main(int ac, char* av[]) {
 
 	vector<Grain> grains;
 
-	cout << ">>> Reading stl files... " << endl;
+	cout << "    Reading stl files... " << endl;
 	double progress = 0.0;
 	int barWidth = 30;
 	// If we decide to write a summary binary file, write the number of grains
@@ -189,14 +202,14 @@ int main(int ac, char* av[]) {
 		// Check to see if this binary file is already written
 		if ( !boost::filesystem::exists( settings.writeBinarySave ) )
 		{
-			cout << ">>> Could not find specified binary write file. Writing out new binary file." << endl;
+			cout << "    Could not find specified binary write file. Writing out new binary file." << endl;
 			// Write the number of grains in the binary file
 			std::ofstream out(settings.writeBinarySave, ios_base::out );
 			int numberOfStlFiles = stlFiles.size();
 			out.write(reinterpret_cast<char *>(&numberOfStlFiles), sizeof(numberOfStlFiles));
 		} else {
 			// If it's here, load the binary file instead:
-			cout << ">>> Found binary file. Reading from binary file instead of stl files." << endl;
+			cout << "    Found binary file. Reading from binary file instead of stl files." << endl;
  			binaryExists = true;
 		}
 
@@ -221,7 +234,7 @@ int main(int ac, char* av[]) {
 				test.exportBinary(settings.writeBinarySave);
 			}
 
-			std::cout << "[";
+			std::cout << "    [";
 			progress = double(i) / double(stlFiles.size());
 			int pos = barWidth * progress;
 			for (int p = 0; p < barWidth; ++p) {
@@ -264,7 +277,7 @@ int main(int ac, char* av[]) {
 				grains.push_back(test);
 			}
 
-			std::cout << "[";
+			std::cout << "    [";
 			progress = double(i) / double(stlFiles.size());
 			int pos = barWidth * progress;
 			for (int p = 0; p < barWidth; ++p) {
@@ -281,7 +294,7 @@ int main(int ac, char* av[]) {
 		cout << endl;
 		in.close();
 	}
-	cout << ">>> Read " << stlFiles.size() << " stl files." << endl;
+	cout << "    Read " << stlFiles.size() << " stl files." << endl;
 
 	map<int, vector<vector<double> > > hole_list;
 	if (settings.detectIslands == 1) {
@@ -318,11 +331,11 @@ int main(int ac, char* av[]) {
 	}
 
 	if (settings.defectType == 0) {
-		cout << ">>> This model contains defects of type: Cracks" << endl;
+		logfile << ">>> This model contains defects of type: Cracks" << endl;
 	} else if (settings.defectType == 1) {
-		cout << ">>> This model contains defects of type: Voids" << endl;
+		logfile << ">>> This model contains defects of type: Voids" << endl;
 	} else {
-		cout << ">>> Defect type not recognized!" << endl;
+		logfile << ">>> Defect type not recognized!" << endl;
 		exit(1);
 	}
 
@@ -333,52 +346,81 @@ int main(int ac, char* av[]) {
 
 		// Build KD tree for gradation function
 
-		cout << ">>> Undoing shrinking with a factor of "
+		logfile << ">>> Undoing shrinking with a factor of "
 				<< mesh_surface.Undo_shrink_factorX << ","  << mesh_surface.Undo_shrink_factorY << "," << mesh_surface.Undo_shrink_factorZ << endl;
 
-		mesh_surface.BuildCrackFrontKD(advFilePath);
+		mesh_surface.BuildCrackFrontKD(advFilePath, logfile);
 	
 
 		for (uint i = 0; i < grains.size(); i++) {
-			cout << ">>> Current kd_node_id: ";
+			logfile << ">>> Current kd_node_id: ";
 			int current_kd_id = mesh_surface.processGrainSurfaceNodes(
 					grains[i]);
-			cout << current_kd_id << " \r";
-			cout.flush();
+			logfile << current_kd_id << " \r";
 		}
-		cout << endl;
+		logfile << endl;
 
 		for (uint i = 0; i < grains.size(); i++) {
-			cout << ">>> Current max_facet_id: ";
+			logfile << ">>> Current max_facet_id: ";
 			int max_facet_id = mesh_surface.processGrainFacets(grains[i], i);
-			cout << max_facet_id << " \r";
-			cout.flush();
+			logfile << max_facet_id << " \r";
 		}
-		cout << endl;
+		logfile << endl;
 
 		asciiSTL astl;
 		// astl.writeGlobalFacets(mesh_surface, "original.stl");
 
 		// First we do coarsening
 		if (smesh_coarsen > 0) {
+			cout << "    Performing " << smesh_coarsen + 1 << " coarsening passes." << endl;
 			for (int rr = 0; rr < smesh_coarsen; rr++) {
-				cout << "\n\n&&& Coarsening surface meshes: pass " << rr + 1 << "."
+				logfile << "\n\n&&& Coarsening surface meshes: pass " << rr + 1 << "."
 						<< endl;
-				mesh_surface.coarsen(rr);
+				mesh_surface.coarsen(rr, logfile);
 				string astlname = "coarsen" + to_string(rr + 1) + ".stl";
 				astl.writeGlobalFacets(mesh_surface, astlname);
+
+				std::cout << "    [";
+				progress = double(rr) / double(smesh_coarsen+1);
+				int pos = barWidth * progress;
+				for (int p = 0; p < barWidth; ++p) {
+					if (p < pos)
+						std::cout << "=";
+					else if (p == pos)
+						std::cout << ">";
+					else
+						std::cout << " ";
+				}
+				std::cout << "] " << int(progress * 100.0) << " %\r";
+				std::cout.flush();
 			}
+			std::cout << endl;
 		}
 
 		// Then we do refinement
 		if (smesh_ref > 0) {
+			cout << "    Performing " << smesh_coarsen + 1 << " refinement passes." << endl;
 			for (int rr = 0; rr < smesh_ref; rr++) {
-				cout << "\n\n&&& Refining surface meshes: pass " << rr + 1 << "."
+				logfile << "\n\n&&& Refining surface meshes: pass " << rr + 1 << "."
 						<< endl;
-				mesh_surface.refine();
+				mesh_surface.refine(logfile);
 				string astlname = "split" + to_string(rr + 1) + ".stl";
 				astl.writeGlobalFacets(mesh_surface, astlname);
+				std::cout << "    [";
+				progress = double(rr) / double(smesh_ref+1);
+				int pos = barWidth * progress;
+				for (int p = 0; p < barWidth; ++p) {
+					if (p < pos)
+						std::cout << "=";
+					else if (p == pos)
+						std::cout << ">";
+					else
+						std::cout << " ";
+				}
+				std::cout << "] " << int(progress * 100.0) << " %\r";
+				std::cout.flush();
 			}
+			std::cout << endl;
 		}
 
 		// Write the final, modified surface mesh 
@@ -395,9 +437,9 @@ int main(int ac, char* av[]) {
 		int Mode = 2;
 		// Write a background volume mesh and calculate desired edge lengths
 		progress = 0.0;
-		cout << ">>> Writing background mesh and mtr files." << endl;
+		cout << "    Writing background mesh and mtr files." << endl;
 		for (uint i = 0; i < stlFiles2.size(); i++) {
-			std::cout << "[";
+			std::cout << "    [";
 			Grain test(stlFiles2[i].string());
 
 			progress = double(i) / double(stlFiles2.size());
@@ -426,13 +468,13 @@ int main(int ac, char* av[]) {
 
 		}
 		cout << endl;
-		cout << ">>> Done writing background mesh and mtr files." << endl;
+		logfile << ">>> Done writing background mesh and mtr files." << endl;
 
 		// Can parallelize
 		progress = 0.0;
-		cout << ">>> Attempting to volume mesh..." << endl;
+		cout << "    Attempting to volume mesh..." << endl;
 		for (uint i = 0; i < stlFiles2.size(); i++) {
-			std::cout << "[";
+			std::cout << "    [";
 			Grain test(stlFiles2[i].string());
 
 			progress = double(i) / double(stlFiles2.size());
@@ -469,29 +511,29 @@ int main(int ac, char* av[]) {
 
 	} 
 	cout << endl;
-	cout << ">>> Volume meshing complete!" << endl;
+	cout << "    Volume meshing complete!" << endl;
 	GlobalMesh mesh(&settings);
 
 	for (uint i = 0; i < grains2.size(); i++) {
-		cout << ">>> Current kd_node_id: ";
+		logfile << ">>> Current kd_node_id: ";
 		int current_kd_id = mesh.processGrainSurfaceNodes(grains2[i]);
-		cout << current_kd_id << " \r";
-		cout.flush();
+		logfile << current_kd_id << " \r";
 	}
-	cout << endl;
+	logfile << endl;
 	// After Going through each Surface Mesh, run through each grain
 	for (uint i = 0; i < grains2.size(); i++) {
 		int current_nid, current_eid;
 		mesh.processGrainElements(grains2[i], current_nid, current_eid);
-		cout << ">>> Current max node id: " << current_nid
+		cout << "    Current max node id: " << current_nid
 				<< ", current max_eid_id: " << current_eid << ".\r";
 		cout.flush();
 	}
 	cout << endl;
-	cout << ">>> Writing out Abaqus INP..." << endl;
+	logfile << ">>> Writing out Abaqus INP..." << endl;
 	INPReader out;
-	out.writeINP(mesh);
+	out.writeINP(mesh, logfile);
 
-	cout << ">>> All DONE!" << endl;
+	logfile << ">>> All DONE!" << endl;
+	logfile.close();
 	return 0;
 }

@@ -43,7 +43,7 @@ INPReader::~INPReader() {
 	// TODO Auto-generated destructor stub
 }
 
-void INPReader::writeINP(GlobalMesh &mesh) {
+void INPReader::writeINP(GlobalMesh &mesh, ofstream &logfile) {
 
 	// Define our new INP name
 	string inpout = "PPM_ABAQUS.inp";
@@ -57,7 +57,7 @@ void INPReader::writeINP(GlobalMesh &mesh) {
 	outfile << "*Part, name=Micro" << endl;
 	outfile << "*Node" << endl;
 
-	cout << ">>> Writing new nodes to INP file: " << inpout << endl;
+	logfile << ">>> Writing new nodes to INP file: " << inpout << endl;
 	// For all the nodes,
 	typedef map<int, vector<double> >::iterator it_type;
 	for (it_type it = mesh.nodes.begin(); it != mesh.nodes.end(); it++) {
@@ -68,12 +68,12 @@ void INPReader::writeINP(GlobalMesh &mesh) {
 		outfile << node_id << ", " << xyz[0] << ", " << xyz[1] << ", "
 				<< xyz[2] << "\n";
 	}
-	cout << ">>> Completed writing new nodes to INP file: " << inpout
+	logfile << ">>> Completed writing new nodes to INP file: " << inpout
 			<< endl;
 
 	outfile << "*Element, type=C3D4" << endl;
 
-	cout << ">>> Writing new elements to INP file: " << inpout << endl;
+	logfile << ">>> Writing new elements to INP file: " << inpout << endl;
 	// For all the elements
 	typedef map<int, vector<int> >::iterator it_type2;
 	for (it_type2 it = mesh.elements.begin(); it != mesh.elements.end(); it++) {
@@ -82,10 +82,10 @@ void INPReader::writeINP(GlobalMesh &mesh) {
 		outfile << element_id << ", " << n[0] << ", " << n[1] << ", "
 				<< n[2] << ", " << n[3] << "\n";
 	}
-	cout << ">>> Completed writing new elements to INP file: " << inpout
+	logfile << ">>> Completed writing new elements to INP file: " << inpout
 			<< endl;
 
-	cout << ">>> Writing elsets to INP file: " << inpout << endl;
+	logfile << ">>> Writing elsets to INP file: " << inpout << endl;
 	// For all the elements
 	typedef map<int, vector<int> >::iterator it_type2;
 	for (it_type2 it = mesh.elementSets.begin(); it != mesh.elementSets.end(); it++) {
@@ -96,7 +96,7 @@ void INPReader::writeINP(GlobalMesh &mesh) {
 			outfile << els[e] << ",\n";
 		}
 	}
-	cout << ">>> Completed writing new elsets to INP file: " << inpout
+	logfile << ">>> Completed writing new elsets to INP file: " << inpout
 			<< endl;
 	outfile << "*End Part" << endl;
 	outfile << "* Assembly, name=Assem" << endl;

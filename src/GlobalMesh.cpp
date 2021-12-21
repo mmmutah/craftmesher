@@ -560,7 +560,7 @@ double GlobalMesh::calculateAngleBetweenNormals(vector<double> &u,
 }
 
 
-int GlobalMesh::coarsen(int rr) {
+int GlobalMesh::coarsen(int rr, ofstream &outfile) {
 	coarsenSurf coarsen;
 	// Classify all edges in the surface mesh and build edge list for ALL edges.
 	buildEdgeList(0);
@@ -596,11 +596,11 @@ int GlobalMesh::coarsen(int rr) {
 
 	// Step 1: Precondition the surface mesh based on user inputs 
 	if (RemoveHourglass && rr == 0)
-		FixHourglass();
+		FixHourglass(outfile);
 	if (Condense3)
-		CONDENSE3();
+		CONDENSE3(outfile);
 	if (RemoveWavyBoundary && rr == 0)
-		FixBoundary();
+		FixBoundary(outfile);
 	if (Condense4)
 		CONDENSE4(coarsen.minAngle, coarsen.maxAngle);
 
@@ -683,11 +683,11 @@ int GlobalMesh::coarsen(int rr) {
 	}
 
 	// If we reach here, a coarsening pass has finished
-	cout << ">>> Coarsening pass made " << Good_Swap << " good swaps" << endl;
+	outfile << ">>> Coarsening pass made " << Good_Swap << " good swaps" << endl;
 
 
 	// Step 4: Second sanity check, check again (this time globally) for any duplicate facets 
-	cout << ">>> Checking for duplicate facets..." << endl;
+	outfile << ">>> Checking for duplicate facets..." << endl;
 	CheckDuplicate();
 
 
@@ -700,7 +700,7 @@ int GlobalMesh::coarsen(int rr) {
 }
 
 
-int GlobalMesh::refine() {
+int GlobalMesh::refine(ofstream &outfile) {
 	refineSurf refine;
 
 	// DEBUG INT
@@ -756,7 +756,7 @@ int GlobalMesh::refine() {
 	}
 
 	// If we reach here, we have finished one refinement iteration
-	cout << ">>> Refinement pass made " << good_refine << " good refinement."
+	outfile << ">>> Refinement pass made " << good_refine << " good refinements."
 			<< endl;
 	return 0;
 }
@@ -2232,7 +2232,7 @@ int GlobalMesh::collapseEdge3(int MODE, vector<int> edge, int nid1, int nid2,
 	return 0;
 }
 
-void GlobalMesh::CONDENSE3() {
+void GlobalMesh::CONDENSE3(ofstream &outfile) {
 	int num_condensed = 0;
 	std::map<int, vector<int> >::iterator itr;
 	std::map<int, vector<int> > node2facetIter(node2facet);
@@ -2348,7 +2348,7 @@ void GlobalMesh::CONDENSE3() {
 			obliteratedNodes.insert(cnid);
 		}
 	}
-	cout << ">>> Removed " << num_condensed << " unnecessary caps" << endl;
+	outfile << ">>> Removed " << num_condensed << " unnecessary caps" << endl;
 }
 
 // Junyan's note on 07/08/20
@@ -2586,7 +2586,7 @@ void GlobalMesh::CONDENSE4(double minAngle, double maxAngle) {
 	cout << "Adjusted " << num_condensed << " quadrilateral facets" << endl;
 }
 
-void GlobalMesh::FixHourglass() {
+void GlobalMesh::FixHourglass(ofstream &outfile) {
 	int num_hourglass = 0;
 	int curr_extra_nid = -1;
 	std::map<int, vector<double> >::iterator itr;
@@ -2712,7 +2712,7 @@ void GlobalMesh::FixHourglass() {
 			curr_extra_nid -= 1;
 		}
 	}
-	cout << ">>> Done pre-conditioning, removed " << num_hourglass
+	outfile << ">>> Done pre-conditioning, removed " << num_hourglass
 			<< " hourglasses." << endl;
 }
 
@@ -2778,7 +2778,7 @@ vector<string> split(string s, string delimiter) {
 	return res;
 }
 
-void GlobalMesh::BuildCrackFrontKD(string FilePath) {
+void GlobalMesh::BuildCrackFrontKD(string FilePath, ofstream &outfile) {
 	ifstream AdvCrk;
 	string Line;
 	int PtIDX = 0;
@@ -2810,9 +2810,9 @@ void GlobalMesh::BuildCrackFrontKD(string FilePath) {
 		exit(1);
 	}
 	if (settings->defectType == 0) {
-		cout << ">>> Read " << PtIDX << " crack front points" << endl;
+		outfile << ">>> Read " << PtIDX << " crack front points" << endl;
 	} else {
-		cout << ">>> Read " << PtIDX << " void centers" << endl;
+		outfile << ">>> Read " << PtIDX << " void centers" << endl;
 	}
 
 }
@@ -3088,8 +3088,8 @@ bool GlobalMesh::CheckOverlap(vector<vector<int> > &tmpFacet,
 	return false;
 }
 
-void GlobalMesh::FixBoundary() {
-	cout << ">>> Begin sawtooth edge smoothing" << endl;
+void GlobalMesh::FixBoundary(ofstream &outfile) {
+	outfile << ">>> Begin sawtooth edge smoothing" << endl;
 
 	// User inputs:
 	int N_smooth_iters = settings->EdgeSmoothing;
@@ -3282,7 +3282,7 @@ void GlobalMesh::FixBoundary() {
 		proposedNodeCoords.clear();
 	}
 
-	cout << ">>> Sawtooth edge smoothing done!" << endl;
+	outfile << ">>> Sawtooth edge smoothing done!" << endl;
 }
 
 } /* namespace std */

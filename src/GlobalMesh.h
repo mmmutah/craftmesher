@@ -86,15 +86,15 @@ public:
 	int processGrainFacets(Grain &grain, int grainID);
 
 	
-	void BuildCrackFrontKD( string FilePath );
+	void BuildCrackFrontKD( string FilePath, ofstream &logfile );
 	int buildEdgeList(int mode);
 
 	int calculateFacetNormal(vector<int> &nids, vector<double>& normal);
 	int calculateFacetAngles(vector<int> &nids, vector<double>& angles);
 
 	// Main coarsen and refine functions
-	int coarsen( int rr );
-	int refine();
+	int coarsen( int rr , ofstream &outfile);
+	int refine(ofstream &outfile);
 	int refine_iterations = 0;
 
 	// I/O
@@ -173,13 +173,13 @@ private:
 	void UnifyConvention( int REF , int fid );
 
 	// Mesh Preprocessing Functions
-	void CONDENSE3();
+	void CONDENSE3(ofstream &outfile);
 	void CONDENSE4( double minAngle , double maxAngle );
-	void FixHourglass();
+	void FixHourglass(ofstream &outfile);
 	void CheckDuplicate();
 	void RemoveFreeEdge( vector< vector<int> > &tmpFacet , vector<int> &External_Loop , int targetSize );
 	bool CheckOverlap( vector< vector<int> > &tmpFacet , vector<int> &External_Loop , vector<int> &AllInternalFacets );
-	void FixBoundary();
+	void FixBoundary(ofstream &outfile);
 
 	// Node Point Cloud
 	struct nodeCloudPt {

@@ -48,7 +48,7 @@ namespace std {
 class INPReader {
 public:
 	INPReader();
-	void writeINP(GlobalMesh &mesh);
+	void writeINP(GlobalMesh &mesh, ofstream &logfile);
 	virtual ~INPReader();
 
 private:
