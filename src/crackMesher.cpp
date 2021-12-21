@@ -468,6 +468,7 @@ int main(int ac, char* av[]) {
 
 
 	} 
+	cout << endl;
 	cout << ">>> Volume meshing complete!" << endl;
 	GlobalMesh mesh(&settings);
 

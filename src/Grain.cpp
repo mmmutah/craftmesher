@@ -54,6 +54,7 @@ Grain::Grain(string stlFilename, int grainNumber, string stlPrefix) {
 }
 
 int Grain::convertStl(string folder) {
+	string original_cwd = boost::filesystem::current_path().generic_string();
 	int status = chdir(folder.c_str());
 	string com = "python ../stl_binary2ascii.py -j " + filename
 			+ " > /dev/null";
@@ -64,6 +65,8 @@ int Grain::convertStl(string folder) {
 
 	filename = "ascii" + filename;
 	prefix = "ascii" + prefix;
+
+	status = chdir(original_cwd.c_str());
 
 	return 0;
 }
