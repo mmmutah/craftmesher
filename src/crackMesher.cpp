@@ -381,7 +381,7 @@ int main(int ac, char* av[]) {
 				astl.writeGlobalFacets(mesh_surface, astlname);
 
 				std::cout << "    [";
-				progress = double(rr) / double(smesh_coarsen+1);
+				progress = double(rr+1) / double(smesh_coarsen+1);
 				int pos = barWidth * progress;
 				for (int p = 0; p < barWidth; ++p) {
 					if (p < pos)
@@ -407,7 +407,7 @@ int main(int ac, char* av[]) {
 				string astlname = "split" + to_string(rr + 1) + ".stl";
 				astl.writeGlobalFacets(mesh_surface, astlname);
 				std::cout << "    [";
-				progress = double(rr) / double(smesh_ref+1);
+				progress = double(rr+1) / double(smesh_ref+1);
 				int pos = barWidth * progress;
 				for (int p = 0; p < barWidth; ++p) {
 					if (p < pos)
