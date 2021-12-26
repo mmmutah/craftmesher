@@ -98,7 +98,7 @@ public:
 	int refine_iterations = 0;
 
 	// I/O
-	void writeMTR( string filename );
+	void writeMTR( string filename, string folder );
 
 	
 private:
@@ -184,6 +184,7 @@ private:
 	// Node Point Cloud
 	struct nodeCloudPt {
 		vector<vector<double> > nodexyz;
+		vector<vector<double> > crack_init_pt;
 		vector<int> nodeID;
 
 		int kdtree_get_point_count() const {

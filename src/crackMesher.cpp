@@ -372,7 +372,7 @@ int main(int ac, char* av[]) {
 
 		// First we do coarsening
 		if (smesh_coarsen > 0) {
-			cout << "    Performing " << smesh_coarsen + 1 << " coarsening passes." << endl;
+			cout << "    Performing " << smesh_coarsen  << " coarsening passes." << endl;
 			for (int rr = 0; rr < smesh_coarsen; rr++) {
 				logfile << "\n\n&&& Coarsening surface meshes: pass " << rr + 1 << "."
 						<< endl;
@@ -381,7 +381,7 @@ int main(int ac, char* av[]) {
 				astl.writeGlobalFacets(mesh_surface, astlname);
 
 				std::cout << "    [";
-				progress = double(rr+1) / double(smesh_coarsen+1);
+				progress = double(rr+1) / double(smesh_coarsen);
 				int pos = barWidth * progress;
 				for (int p = 0; p < barWidth; ++p) {
 					if (p < pos)
@@ -399,7 +399,7 @@ int main(int ac, char* av[]) {
 
 		// Then we do refinement
 		if (smesh_ref > 0) {
-			cout << "    Performing " << smesh_coarsen + 1 << " refinement passes." << endl;
+			cout << "    Performing " << smesh_ref  << " refinement passes." << endl;
 			for (int rr = 0; rr < smesh_ref; rr++) {
 				logfile << "\n\n&&& Refining surface meshes: pass " << rr + 1 << "."
 						<< endl;
@@ -407,7 +407,7 @@ int main(int ac, char* av[]) {
 				string astlname = "split" + to_string(rr + 1) + ".stl";
 				astl.writeGlobalFacets(mesh_surface, astlname);
 				std::cout << "    [";
-				progress = double(rr+1) / double(smesh_ref+1);
+				progress = double(rr+1) / double(smesh_ref);
 				int pos = barWidth * progress;
 				for (int p = 0; p < barWidth; ++p) {
 					if (p < pos)
@@ -464,7 +464,7 @@ int main(int ac, char* av[]) {
 			}
 
 			// Write mtr files
-			mesh_surface.writeMTR(stlFiles2[i].string());
+			mesh_surface.writeMTR(stlFiles2[i].string(), folder.string());
 
 		}
 		cout << endl;
