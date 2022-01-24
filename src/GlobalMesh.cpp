@@ -2917,8 +2917,8 @@ int GlobalMesh::sizingFunction(double currLen, vector<double> &mp,
 	// Check ahead or behind crack
 	// Check distance of current point and distance of adv point
 	vector<double> init_pnt = CrackPtcloud.crack_init_pt.at(ret_index);
-	vector<double> closest_pnt = CrackPtcloud.nodexyz.at(ret_index);
-	double r_cfn = sqrt( pow(init_pnt[0] - closest_pnt[0],2) + pow(init_pnt[1] - closest_pnt[1],2) );
+	vector<double> closest_cfn_pnt = CrackPtcloud.nodexyz.at(ret_index);
+	double r_cfn = sqrt( pow(init_pnt[0] - closest_cfn_pnt[0],2) + pow(init_pnt[1] - closest_cfn_pnt[1],2) );
 	double r_qyr = sqrt( pow(query_pt[0] - init_pnt[0],2) + pow(query_pt[1] - init_pnt[1],2) );
 
 	// cout << "init_pnt: " << init_pnt[0] << " " << init_pnt[1] << " " << init_pnt[2] << endl;
@@ -2958,28 +2958,35 @@ int GlobalMesh::sizingFunction(double currLen, vector<double> &mp,
 		}
 	}
 	else if (GS == 2) {
-		if (r <= R0) {
-
-			if (r_qyr < r_cfn) {
-				ratio = pow(r / R0, settings->powerExp);
-				Objective_Length = ratio * (MaxEdge - MinEdge) + MinEdge;
-			} else {
+		if ((r_qyr < r_cfn) && ( (r_cfn - r_qyr) < R0  ) ){
+			ratio = pow((r_cfn - r_qyr) / R0, settings->powerExp);
+			Objective_Length = ratio * (MaxEdge - MinEdge) + MinEdge;
+			if (currLen < Objective_Length) {
+				return 1;
+			} // Coarsen
+			else
+				return -1; // Allow coarsening in the refinement region
+		} else {
+			if (r <= R0) {
 				Objective_Length = MinEdge;
-			}
-			
+
 			if (currLen > Objective_Length) {
 				return -1;
 			} // Refine
 			else
 				return 1; // Allow coarsening in the refinement region
 
-		} else {
-			ratio = min(1., abs(r - R0) / (Rt - R0));
-			Objective_Length = ratio * (MaxEdge - OriginalEdge) + OriginalEdge;
+			} else {
+				ratio = min(1., abs(r - R0) / (Rt - R0));
+				Objective_Length = ratio * (MaxEdge - OriginalEdge) + OriginalEdge;
 
-			if (currLen < Objective_Length) {
-				return 1;
-			} // Coarsen
+				if (currLen < Objective_Length) {
+					return 1;
+				} // Coarsen
+			}
+
+
+
 		}
 	} else {
 		cerr << "Gradation scheme unrecognized: " << GS << endl;

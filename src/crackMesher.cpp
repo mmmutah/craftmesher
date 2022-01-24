@@ -114,7 +114,7 @@ int main(int ac, char* av[]) {
 
 	string version = "1.000";
 
-	ofstream logfile("mesh.log");
+
 
 	int binary, smesh_ref, smesh_coarsen = 0;
 	try {
@@ -152,6 +152,7 @@ int main(int ac, char* av[]) {
 
 
 	programSettings settings;
+	ofstream logfile("mesh.log");
 	try {
 		settings.loadData(settingsPath);
 		stlPath = settings.stlsPath;
@@ -225,9 +226,9 @@ int main(int ac, char* av[]) {
 				test.writeSmshAndRead(folder.string());
 			}
 
-			if (smesh_ref > 0 || smesh_coarsen > 0) {
+			//if (smesh_ref > 0 || smesh_coarsen > 0) {
 				grains.push_back(test);
-			}
+			//}
 
 			// If we want to write the binary file, do it now
 			if (settings.writeBinarySave.length() > 0) {
@@ -273,9 +274,9 @@ int main(int ac, char* av[]) {
 
 			test.importBinary(in);
 
-			if (smesh_ref > 0 || smesh_coarsen > 0) {
+			//if (smesh_ref > 0 || smesh_coarsen > 0) {
 				grains.push_back(test);
-			}
+			//}
 
 			std::cout << "    [";
 			progress = double(i) / double(stlFiles.size());
@@ -340,16 +341,18 @@ int main(int ac, char* av[]) {
 	}
 
 	vector<Grain> grains2;
-	if ((smesh_coarsen > 0) || (smesh_ref > 0)) {
+
 		GlobalMesh mesh_surface(&settings);
 		mesh_surface.refine_iterations = smesh_ref;
 
 		// Build KD tree for gradation function
 
+	if ((smesh_coarsen > 0) || (smesh_ref > 0)) {
 		logfile << ">>> Undoing shrinking with a factor of "
 				<< mesh_surface.Undo_shrink_factorX << ","  << mesh_surface.Undo_shrink_factorY << "," << mesh_surface.Undo_shrink_factorZ << endl;
 
 		mesh_surface.BuildCrackFrontKD(advFilePath, logfile);
+	}
 	
 
 		for (uint i = 0; i < grains.size(); i++) {
@@ -455,8 +458,16 @@ int main(int ac, char* av[]) {
 			std::cout << "] " << int(progress * 100.0) << " % (GID: "
 					<< test.giveRawGrainNumber() << ")               \r";
 			std::cout.flush();
-
-			int success = test.writeBackGroundSmsh(folder.string(), settings);
+			int success;
+			try {
+				int success = test.writeBackGroundSmsh(folder.string(), settings);
+			}
+			catch (exception e) {
+				cout << "ERROR: Background mesh generation failed in crack mesher function writeBackGroundSmsh." 
+						<< endl;
+				exit(1);
+			}
+			
 			if (success != 0) {
 				cout << "ERROR: Background mesh generation failed! Please check the surface mesh to make sure it is volume-meshable!"
 						<< endl;
@@ -464,7 +475,9 @@ int main(int ac, char* av[]) {
 			}
 
 			// Write mtr files
-			mesh_surface.writeMTR(stlFiles2[i].string(), folder.string());
+			if ((smesh_ref > 0) and (smesh_coarsen > 0)) {
+				mesh_surface.writeMTR(stlFiles2[i].string(), folder.string());
+			}
 
 		}
 		cout << endl;
@@ -509,7 +522,6 @@ int main(int ac, char* av[]) {
 		}
 
 
-	} 
 	cout << endl;
 	cout << "    Volume meshing complete!" << endl;
 	GlobalMesh mesh(&settings);
