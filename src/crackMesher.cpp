@@ -112,7 +112,7 @@ void enumerateStlFiles2(fs::path& folder, vector<fs::path>& out) {
 int main(int ac, char* av[]) {
 	string stlPath, cont_string, ref_string, advFilePath, settingsPath;
 
-	string version = "1.000";
+	string version = "1.001";
 
 
 
