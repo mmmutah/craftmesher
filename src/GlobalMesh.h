@@ -79,11 +79,17 @@ public:
 	int addToFacet2Grain(int facetID, int grainID);
 	int addToFacet2Grain(int facetID, set<int> grainID);
 	int removeFromFacet2Grain(int facetID, int grainID);
+
+	int xyzToNID(double x, double y, double z);
+
+	map<int, set<int> > sideNodes;
 	
 	// Process Functions
 	int processGrainSurfaceNodes(Grain& grain);
 	int processGrainElements(Grain& grain, int &count_nodes, int &count_els);
 	int processGrainFacets(Grain &grain, int grainID);
+	void processBoundaryNodes(GlobalMesh &surface_mesh);
+	void findBoundaries(double distanceTolerance, double normalToleranceDeg);
 
 	
 	void BuildCrackFrontKD( string FilePath, ofstream &logfile );
@@ -98,7 +104,7 @@ public:
 	int refine_iterations = 0;
 
 	// I/O
-	void writeMTR( string filename );
+	void writeMTR( string filename, string folder );
 
 	
 private:
@@ -171,6 +177,7 @@ private:
 	void UpdateMesh( vector<int> &auxFacets , map<int, vector<int> > &proposedFacets , int nid1 , int nid2 );
 	int sizingFunction( double currLen , vector<double> &mp , double& Objective_Length , int Mode );
 	void UnifyConvention( int REF , int fid );
+	void findNodeLimits(vector<double>& limits);
 
 	// Mesh Preprocessing Functions
 	void CONDENSE3(ofstream &outfile);
@@ -184,6 +191,7 @@ private:
 	// Node Point Cloud
 	struct nodeCloudPt {
 		vector<vector<double> > nodexyz;
+		vector<vector<double> > crack_init_pt;
 		vector<int> nodeID;
 
 		int kdtree_get_point_count() const {
@@ -218,6 +226,10 @@ private:
 	// Third KD-tree for Crack Points
 	nodeCloudPt CrackPtcloud;
 	my_kd_tree_t CrackPtKD;
+
+	// Fourth KD-tree for Nodes
+	nodeCloudPt nodecloud;
+	my_kd_tree_t nodeKD;
 	
 
 	vector<double> calculateMidpointBetweenTwoDoubleVectors(vector<double> v1, vector<double> v2) {

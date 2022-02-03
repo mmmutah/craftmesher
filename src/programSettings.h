@@ -59,6 +59,7 @@ public:
 	// Refinement Parameters
 	int refinementPasses;
 	double ref_targetSize, ref_volTargetSize, R0, Rt, shrinkFactorX, shrinkFactorY, shrinkFactorZ;
+	double powerExp;
 	std::string refMethod;
 
 	// Coarsening Parameters
@@ -71,6 +72,10 @@ public:
 
 	// Detect Islands
 	int detectIslands;
+
+	// Write side node sets
+	int sideNodeSets;
+	double distanceTolerance, normalToleranceDeg;
 
 
 	// Load the Data
@@ -88,8 +93,6 @@ public:
 
 		writeBinarySave = tree.get<std::string>("crackMesher.writeBinarySave");
 
-
-
 		// Mesh Parameters
 		OriginalEdge = tree.get<double>("crackMesher.OriginalEdgeLength", 0);
 		continuumQuality = tree.get<std::string>("crackMesher.TetGenQualityMeasure");
@@ -99,17 +102,19 @@ public:
 
 		defectType = tree.get("crackMesher.defectType", 0);
 
+		R0 = tree.get<double>("crackMesher.R0", 0);
+		Rt = tree.get<double>("crackMesher.Rt", 0);
+		powerExp = tree.get<double>("crackMesher.a", 3);
+
+		advancingCrackPath = tree.get<std::string>("crackMesher.advancingCrackFile");
+		shrinkFactorX = tree.get<double>("crackMesher.advCrackFileShrinkX");
+		shrinkFactorY = tree.get<double>("crackMesher.advCrackFileShrinkY");
+		shrinkFactorZ = tree.get<double>("crackMesher.advCrackFileShrinkZ");
+
 		// Refinement Parameters
 		refinementPasses = tree.get("crackMesher.refinement.refinement_passes", 0);
 		ref_targetSize = tree.get<double>("crackMesher.refinement.SurfaceTargetEdgeLength", 0);
 		ref_volTargetSize = tree.get<double>("crackMesher.refinement.VolumeTargetEdgeLength", 0);
-		R0 = tree.get<double>("crackMesher.refinement.R0", 0);
-		Rt = tree.get<double>("crackMesher.refinement.Rt", 0);
-
-		advancingCrackPath = tree.get<std::string>("crackMesher.refinement.advancingCrackFile");
-		shrinkFactorX = tree.get<double>("crackMesher.refinement.advCrackFileShrinkX");
-		shrinkFactorY = tree.get<double>("crackMesher.refinement.advCrackFileShrinkY");
-		shrinkFactorZ = tree.get<double>("crackMesher.refinement.advCrackFileShrinkZ");
 
 		// Coarsening Parameters
 		coarseningPasses = tree.get("crackMesher.coarsening.coarsening_passes", 0);
@@ -123,6 +128,11 @@ public:
 		SmoothBoundary = tree.get("crackMesher.coarsening.SmoothBoundary", 1);
 		Condense3 = tree.get("crackMesher.coarsening.Condense3", 1);
 		EdgeSmoothing = tree.get("crackMesher.coarsening.EdgeSmoothing", 2);
+
+		// Side Node Sets:
+		sideNodeSets = tree.get("crackMesher.generateBoundaryNodeSets", 0);
+		distanceTolerance = tree.get<double>("crackMesher.boundaryNodeDistanceTolerance", 0);
+		normalToleranceDeg = tree.get<double>("crackMesher.boundaryNodeNormalTolerance", 0);
 
 		return 0;
 	}

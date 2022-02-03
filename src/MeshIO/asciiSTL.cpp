@@ -76,6 +76,7 @@ int asciiSTL::writeIndividualFacets(string folder, GlobalMesh& mesh) {
 		// Define our new STL name
 		string stlout = "indgrain_" + to_string(it2->first) + ".stl";
 		ofstream outfile(folder + "/" + stlout);
+		outfile << std::setprecision(16);
 		outfile << "solid\n";
 		set<int> &facetIDs = it2->second;
 		set<int>::iterator i;
@@ -141,6 +142,7 @@ int asciiSTL::writeGlobalFacets(GlobalMesh& mesh, string stlout) {
 
 		// Define our new STL name
 		ofstream outfile(stlout);
+		//outfile << std::setprecision(16);
 		outfile << "solid\n" << endl;
 
 		typedef map<int, vector<int> >::iterator it_type;
