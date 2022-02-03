@@ -13,7 +13,6 @@ out*.txt
 *.log
 Makefile
 *.dirstamp
-*.DS_Store
 
 #  http://www.gnu.org/software/automake
 configure
