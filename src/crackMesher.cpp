@@ -429,6 +429,11 @@ int main(int ac, char* av[]) {
 		// Write the final, modified surface mesh 
 		astl.writeGlobalFacets(mesh_surface, "modified.stl");
 
+		// If we enabled boundary finding, find the boundary:
+		if (settings.sideNodeSets == 1) {
+			mesh_surface.findBoundaries(settings.distanceTolerance, settings.normalToleranceDeg);
+		}
+
 		// Now we have the surface mesh, let's separate the surface mesh such that we retain the grain ID
 		asciiSTL writer;
 		writer.writeIndividualFacets(folder.string(), mesh_surface);
@@ -532,6 +537,12 @@ int main(int ac, char* av[]) {
 		logfile << current_kd_id << " \r";
 	}
 	logfile << endl;
+
+	// If we enabled boundary finding, translate side node sets into the global mesh
+	if (settings.sideNodeSets == 1) {
+		mesh.processBoundaryNodes(mesh_surface);
+	}
+
 	// After Going through each Surface Mesh, run through each grain
 	for (uint i = 0; i < grains2.size(); i++) {
 		int current_nid, current_eid;
@@ -540,6 +551,8 @@ int main(int ac, char* av[]) {
 				<< ", current max_eid_id: " << current_eid << ".\r";
 		cout.flush();
 	}
+
+
 	cout << endl;
 	logfile << ">>> Writing out Abaqus INP..." << endl;
 	INPReader out;

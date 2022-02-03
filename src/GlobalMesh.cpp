@@ -49,6 +49,8 @@ GlobalMesh::GlobalMesh(programSettings *settings_in) :
 				3 /*dim*/, facecloud,
 				KDTreeSingleIndexAdaptorParams(10 /* max leaf */)), CrackPtKD(
 				3 /*dim*/, CrackPtcloud,
+				KDTreeSingleIndexAdaptorParams(10 /* max leaf */)), nodeKD(
+				3 /*dim*/, nodecloud,
 				KDTreeSingleIndexAdaptorParams(10 /* max leaf */)) {
 	max_eid = 1, kd_node_id = 1, max_facet_id = 1;
 	settings = settings_in;
@@ -163,8 +165,8 @@ int GlobalMesh::isThisADuplicate(vector<double> &xyz, int &duplicateID,
 	KNNResultSet<double> resultSet(num_results);
 	resultSet.init(&ret_index, &out_dist_sqr);
 	idx.findNeighbors(resultSet, query_pt, nanoflann::SearchParams(10));
-
 	duplicateID = ret_index;
+
 	if (out_dist_sqr < std::numeric_limits<double>::epsilon()) {
 		return 1;
 
@@ -325,6 +327,33 @@ int GlobalMesh::processGrainSurfaceNodes(Grain &grain) {
 
 	}
 	return kd_node_id;
+}
+
+void GlobalMesh::processBoundaryNodes(GlobalMesh &surface_mesh) {
+	// This can only be run with a volume mesh
+
+	map<int, int> surfaceNodes2MyNodes;
+
+	// Go through all our nodes and relate them to the surface mesh nodes
+	for (auto n : nodes) {
+		vector<double> &xyz = nodes.at(n.first);
+		int other_nid = surface_mesh.xyzToNID(xyz[0], xyz[1], xyz[2]);
+		if (other_nid != -1) {
+			surfaceNodes2MyNodes.insert(pair<int,int>(other_nid, n.first));
+		}
+	}
+
+	// Go through the surface mesh's sideNodes map
+	for (auto side : surface_mesh.sideNodes) {
+		set<int> temp;
+		sideNodes.insert(pair<int, set<int> >(side.first, temp));
+		for (auto n : side.second) {
+			// Translate those surface NIDs to my volume NIDs
+			int my_nids = surfaceNodes2MyNodes.at(n);
+			sideNodes.at(side.first).insert(my_nids);
+		}
+	}
+
 }
 
 int GlobalMesh::processGrainFacets(Grain &grain, int indexID) {
@@ -2730,6 +2759,24 @@ void GlobalMesh::FixHourglass(ofstream &outfile) {
 			<< " hourglasses." << endl;
 }
 
+int GlobalMesh::xyzToNID(double x, double y, double z) {
+	const size_t num_results = 1;
+	size_t ret_index;
+	double out_dist_sqr;
+	KNNResultSet<double> resultSet(num_results);
+	resultSet.init(&ret_index, &out_dist_sqr);
+	double query_pt[3] = { x, y, z };
+	nodeKD.findNeighbors(resultSet, query_pt, nanoflann::SearchParams(10));
+
+	if (out_dist_sqr < std::numeric_limits<double>::epsilon()) {
+		return nodecloud.nodeID[ret_index];
+
+	} else {
+		return -1;
+	}
+
+}
+
 void GlobalMesh::CheckDuplicate() {
 	nodeCloudPt facet_cloud;
 	my_kd_tree_t dupliFacetKD(3 /*dim*/, facet_cloud,
@@ -3346,6 +3393,171 @@ void GlobalMesh::FixBoundary(ofstream &outfile) {
 	}
 
 	outfile << ">>> Sawtooth edge smoothing done!" << endl;
+}
+
+void GlobalMesh::findNodeLimits(vector<double>& limits) {
+	// limits is a vector with: xmin, xmax, ymin, ymax, zmin, zmax
+	limits[0] = 1e16; limits[1] = -1e16; limits[2] = 1e16; limits[3] = -1e16; 
+	limits[4] = 1e16; limits[5] = -1e16;
+	for ( auto n : nodes ) {
+		vector<double> &xyz = n.second;
+		for ( int II = 0; II < 3; II++) {
+			if (xyz[II] > limits[1 + II*2]) { // Maxes
+				limits[1 + II*2] = xyz[II];
+			}
+			if (xyz[II] < limits[II*2]) {
+				limits[II*2] = xyz[II];
+			}
+		}
+	}
+}
+
+void GlobalMesh::findBoundaries(double distanceTolerance, double normalToleranceDeg) {
+	// Finds the boundaries of the global mesh (i.e. faces that BCs would be applied to)
+	// For each facet, gather the ones that only have one grain ID attached to them
+
+	vector<double> limits = {0,0,0,0,0,0};
+	this->findNodeLimits(limits);
+
+	set<int> surfaceFacets;
+	for ( auto f : facet2grain ){
+		int facetid = f.first;
+		set<int> &gids = f.second; 
+		if (gids.size() == 1 ) {
+			// We have a "surface facet"
+			// Due to coarsening operations FIDs may be deleted.
+			// Therefore, we need to check if the FID we're adding exists in globalfacets
+			if (globalFacets.count(facetid)) {
+				surfaceFacets.insert(facetid);
+			}
+			
+		}
+	}
+
+	// Now we have a list of facets, we need to sort them
+	// 0 - XMINUS
+	// 1 - XPLUS
+	// 2 - YMINUS
+	// 3 - YPLUS
+	// 4 - ZMINUS
+	// 5 - ZPLUS
+
+	for (int i = 0; i < 6; ++i) {
+		set<int> temp;
+		sideNodes.insert(pair<int, set<int> >(i, temp));
+	}
+	vector<double> normal = { 0, 0, 0 };
+	vector<double> comparativeNormal = { 0, 0, 0 };
+	
+	for (auto fid : surfaceFacets) {
+		// Get the nodes for the facets
+		vector<int> nids = globalFacets.at(fid);
+
+		vector<double> facetCentroid = {0,0,0};
+		for (auto n : nids) {
+			facetCentroid[0] += nodes.at(n)[0];
+			facetCentroid[1] += nodes.at(n)[1];
+			facetCentroid[2] += nodes.at(n)[2];
+		}
+		facetCentroid[0] /= double(nids.size());
+		facetCentroid[1] /= double(nids.size());
+		facetCentroid[2] /= double(nids.size());
+
+		// Get the facet normal
+		calculateFacetNormal(nids, normal);
+		// Determine the normal difference from the basis directions
+		// If it were possible, calculation of the normal based on the sign would be efficient
+		// However, facets can be loaded with incorrect ordering, and may not have their normals facing the right way
+		// So the comparison is made with positive and negative basis directions, and the sorting happens with the
+		// distance tolerance
+		
+		bool side = false;
+		// X - { 1, 0, 0 }
+		comparativeNormal[0] = 1; comparativeNormal[1] = 0; comparativeNormal[2] = 0;  
+		double xPlus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		// X - { -1, 0, 0 }
+		comparativeNormal[0] = -1; comparativeNormal[1] = 0; comparativeNormal[2] = 0;  		
+		double xMinus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		if ((xPlus < normalToleranceDeg) || (xMinus < normalToleranceDeg)) {
+			// If it's within the tolerance degree, now check distance between limits
+			// XMINUS
+			if ( abs(facetCentroid[0] - limits[0]) < distanceTolerance) {
+				for (auto n : nids) {
+					sideNodes.at(0).insert(n);
+				}
+				side = true;
+			}
+			// XPLUS
+			if ( abs(facetCentroid[0] - limits[1]) < distanceTolerance) {
+				for (auto n : nids) {
+					sideNodes.at(1).insert(n);
+				}
+				side = true;
+			}
+		}
+
+		// Y - { 0, 1, 0 }
+		comparativeNormal[0] = 0; comparativeNormal[1] = 1; comparativeNormal[2] = 0;  
+		double yPlus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		// Y - { 0, -1, 0 }
+		comparativeNormal[0] = 0; comparativeNormal[1] = -1; comparativeNormal[2] = 0;	
+		double yMinus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		if ((yPlus < normalToleranceDeg) || (yMinus < normalToleranceDeg)) {
+			// YMINUS
+			if ( abs(facetCentroid[1] - limits[2]) < distanceTolerance ) {
+				for (auto n : nids) {
+					sideNodes.at(2).insert(n);
+				}
+				side = true;
+			}
+			// YPLUS
+			if ( abs(facetCentroid[1] - limits[3]) < distanceTolerance ) {
+				for (auto n : nids) {
+					sideNodes.at(3).insert(n);
+				}
+				side = true;
+			}
+		}
+
+		// Z - { 0, 0, 1 }
+		comparativeNormal[0] = 0; comparativeNormal[1] = 0; comparativeNormal[2] = 1;  
+		double zPlus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		// Z - { 0, 0, -1 }
+		comparativeNormal[0] = 0; comparativeNormal[1] = 0; comparativeNormal[2] = -1;	
+		double zMinus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		if ((zPlus < normalToleranceDeg) || (zMinus < normalToleranceDeg)) {
+			// ZMINUS
+			if ( abs(facetCentroid[2] - limits[4]) < distanceTolerance ) {
+				for (auto n : nids) {
+					sideNodes.at(4).insert(n);
+				}
+				side = true;
+			}
+			// ZPLUS
+			if ( abs(facetCentroid[2] - limits[5]) < distanceTolerance ) {
+				for (auto n : nids) {
+					sideNodes.at(5).insert(n);
+				}
+				side = true;
+			}
+		}
+
+		// If side is true:
+		if (side == true) {
+			for (auto n : nids) {
+				nodecloud.nodeID.push_back(n);
+				nodecloud.nodexyz.push_back(nodes.at(n));
+				nodeKD.addPoints(nodecloud.getSize() - 1, nodecloud.getSize() - 1);	
+			}
+		}
+	
+
+
+	}
+
+
+
+
 }
 
 } /* namespace std */

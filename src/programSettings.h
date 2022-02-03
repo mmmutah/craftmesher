@@ -73,6 +73,10 @@ public:
 	// Detect Islands
 	int detectIslands;
 
+	// Write side node sets
+	int sideNodeSets;
+	double distanceTolerance, normalToleranceDeg;
+
 
 	// Load the Data
 	int loadData(std::string configPath) {
@@ -124,6 +128,11 @@ public:
 		SmoothBoundary = tree.get("crackMesher.coarsening.SmoothBoundary", 1);
 		Condense3 = tree.get("crackMesher.coarsening.Condense3", 1);
 		EdgeSmoothing = tree.get("crackMesher.coarsening.EdgeSmoothing", 2);
+
+		// Side Node Sets:
+		sideNodeSets = tree.get("crackMesher.generateBoundaryNodeSets", 0);
+		distanceTolerance = tree.get<double>("crackMesher.boundaryNodeDistanceTolerance", 0);
+		normalToleranceDeg = tree.get<double>("crackMesher.boundaryNodeNormalTolerance", 0);
 
 		return 0;
 	}
