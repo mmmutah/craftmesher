@@ -49,6 +49,8 @@ GlobalMesh::GlobalMesh(programSettings *settings_in) :
 				3 /*dim*/, facecloud,
 				KDTreeSingleIndexAdaptorParams(10 /* max leaf */)), CrackPtKD(
 				3 /*dim*/, CrackPtcloud,
+				KDTreeSingleIndexAdaptorParams(10 /* max leaf */)), nodeKD(
+				3 /*dim*/, nodecloud,
 				KDTreeSingleIndexAdaptorParams(10 /* max leaf */)) {
 	max_eid = 1, kd_node_id = 1, max_facet_id = 1;
 	settings = settings_in;
@@ -163,8 +165,8 @@ int GlobalMesh::isThisADuplicate(vector<double> &xyz, int &duplicateID,
 	KNNResultSet<double> resultSet(num_results);
 	resultSet.init(&ret_index, &out_dist_sqr);
 	idx.findNeighbors(resultSet, query_pt, nanoflann::SearchParams(10));
-
 	duplicateID = ret_index;
+
 	if (out_dist_sqr < std::numeric_limits<double>::epsilon()) {
 		return 1;
 
@@ -325,6 +327,33 @@ int GlobalMesh::processGrainSurfaceNodes(Grain &grain) {
 
 	}
 	return kd_node_id;
+}
+
+void GlobalMesh::processBoundaryNodes(GlobalMesh &surface_mesh) {
+	// This can only be run with a volume mesh
+
+	map<int, int> surfaceNodes2MyNodes;
+
+	// Go through all our nodes and relate them to the surface mesh nodes
+	for (auto n : nodes) {
+		vector<double> &xyz = nodes.at(n.first);
+		int other_nid = surface_mesh.xyzToNID(xyz[0], xyz[1], xyz[2]);
+		if (other_nid != -1) {
+			surfaceNodes2MyNodes.insert(pair<int,int>(other_nid, n.first));
+		}
+	}
+
+	// Go through the surface mesh's sideNodes map
+	for (auto side : surface_mesh.sideNodes) {
+		set<int> temp;
+		sideNodes.insert(pair<int, set<int> >(side.first, temp));
+		for (auto n : side.second) {
+			// Translate those surface NIDs to my volume NIDs
+			int my_nids = surfaceNodes2MyNodes.at(n);
+			sideNodes.at(side.first).insert(my_nids);
+		}
+	}
+
 }
 
 int GlobalMesh::processGrainFacets(Grain &grain, int indexID) {
@@ -1269,14 +1298,18 @@ int GlobalMesh::ExternalLoop(vector<int> &auxFacets, vector<int> &External_Loop,
 	// Sanity check
 	// Check 1: See if we indeed found all the nodes on the external edge loop
 	if (External_Loop.size() != num_edges + MODE) {
+		#if (COARSENDEBUG > 0)
 		cout << ">>> WARNING: Didn't find all external edges, skipping" << endl;
+		#endif
 		num_edges = -2;
 	}
 	// Check 2: See if all nodes in the external loop are unique
 	// If they are not, this indicates that the external loop has a self-intersection.
 	// This case is too complex and is not handled
 	else if (External_Loop.size() != Unique_nodes.size()) {
+		#if (COARSENDEBUG > 0)
 		cout << ">>> WARNING: At least one self-intersection on the external loop, skipping" << endl;
+		#endif
 		num_edges = -2;
 	}
 	return num_edges;
@@ -1679,7 +1712,9 @@ int GlobalMesh::collapseEdge(vector<int> edge, int nid1, int nid2,
 
 	// Check if we indeed unified the convention for ALL aux facets
 	if (AF.size() != 0) {
+		#if (COARSENDEBUG > 0)
 		cout << ">>> WARNING: Facet convention unification failed, skipping this edge" << endl;
+		#endif
 		return -1;
 	}
 
@@ -1804,7 +1839,9 @@ int GlobalMesh::collapseEdge(vector<int> edge, int nid1, int nid2,
 
 		// Sanity check, see if we created duplicate facets
 		if (CheckOverlap(tmpFacet, External_Loop, auxFacets)) {
+			#if (COARSENDEBUG > 0)
 			cout << ">>> WARNING: Swapping algorithm created overlaping facets! Skipping!" << endl;
+			#endif
 			// If we fail, we need to restore location of node 1 to its original location
 			nodes[nid1] = old_nc;
 			return -1;
@@ -1813,8 +1850,10 @@ int GlobalMesh::collapseEdge(vector<int> edge, int nid1, int nid2,
 		// Sanity check, see if the swapping algorithm produces unexpected results
 		// The number of UNIQUE facets after swapping, should equal to the number of facets in the initial guess (although the facets are different)
 		if (tmpFacet.size() != initial_facet_pair.size() + 1) {
+			#if (COARSENDEBUG > 0)
 			cout << ">>> WARNING: Initially there are " << initial_facet_pair.size() + 1
 					<< " unique facets, now we have " << tmpFacet.size() << endl;
+			#endif
 			// If the two numbers do not agree, this is most likely because we have a facet with a free edge (that partially overlaps with other facets)
 			// This is potentially very bad, but we can attempt to fix it by removing the problematic facet
 			RemoveFreeEdge(tmpFacet, External_Loop, initial_facet_pair.size());
@@ -2085,9 +2124,11 @@ int GlobalMesh::collapseEdge3(int MODE, vector<int> edge, int nid1, int nid2,
 
 	// Check if we found all aux facets
 	if (total_found != auxFacets.size()) {
+		#if (COARSENDEBUG > 0)
 		cout
 				<< ">>> WARNING: We didn't find all aux facets! Skipping this edge..."
 				<< endl;
+		#endif
 		return -1;
 	}
 
@@ -2188,10 +2229,12 @@ int GlobalMesh::collapseEdge3(int MODE, vector<int> edge, int nid1, int nid2,
 
 			// Sanity check, see if the swapping algorithm created something unexpected
 			if (tmpFacet.size() != initial_facet_pair.size() + 1) {
+				#if (COARSENDEBUG > 0)
 				cout << ">>> WARNING: Initially there are "
 						<< initial_facet_pair.size() + 1
 						<< " unique facets, now we have " << tmpFacet.size()
 						<< endl;
+				#endif
 				RemoveFreeEdge(tmpFacet, External_Loop,
 						initial_facet_pair.size());
 			}
@@ -2716,6 +2759,24 @@ void GlobalMesh::FixHourglass(ofstream &outfile) {
 			<< " hourglasses." << endl;
 }
 
+int GlobalMesh::xyzToNID(double x, double y, double z) {
+	const size_t num_results = 1;
+	size_t ret_index;
+	double out_dist_sqr;
+	KNNResultSet<double> resultSet(num_results);
+	resultSet.init(&ret_index, &out_dist_sqr);
+	double query_pt[3] = { x, y, z };
+	nodeKD.findNeighbors(resultSet, query_pt, nanoflann::SearchParams(10));
+
+	if (out_dist_sqr < std::numeric_limits<double>::epsilon()) {
+		return nodecloud.nodeID[ret_index];
+
+	} else {
+		return -1;
+	}
+
+}
+
 void GlobalMesh::CheckDuplicate() {
 	nodeCloudPt facet_cloud;
 	my_kd_tree_t dupliFacetKD(3 /*dim*/, facet_cloud,
@@ -2785,20 +2846,24 @@ void GlobalMesh::BuildCrackFrontKD(string FilePath, ofstream &outfile) {
 
 	AdvCrk.open(FilePath);
 	vector<double> cp;
+	vector<double> adv_centroid;
 	while (getline(AdvCrk, Line)) {
 		vector<string> tmp = split(Line, ",");
 
 		// If we are reading the advancing crack file
 		if (settings->defectType == 0) {
 			cp = {stod(tmp[7])*Undo_shrink_factorX , stod(tmp[8])*Undo_shrink_factorY , stod(tmp[9])*Undo_shrink_factorZ};
+			adv_centroid = { stod(tmp[1])*Undo_shrink_factorX, stod(tmp[2])*Undo_shrink_factorX, stod(tmp[3])*Undo_shrink_factorX  };
 		} else {
 			cp = {stod(tmp[1])*Undo_shrink_factorX , stod(tmp[2])*Undo_shrink_factorY , stod(tmp[3])*Undo_shrink_factorZ};
+			adv_centroid = cp;
 			double cr = stod(tmp[4])*((Undo_shrink_factorX + Undo_shrink_factorY + Undo_shrink_factorZ)/3.);
 			VoidRadius.insert( std::pair< int , double >( PtIDX , cr ) );
 		}
 
 		CrackPtcloud.nodeID.push_back(PtIDX);
 		CrackPtcloud.nodexyz.push_back(cp);
+		CrackPtcloud.crack_init_pt.push_back(adv_centroid);
 		CrackPtKD.addPoints(CrackPtcloud.getSize() - 1,
 				CrackPtcloud.getSize() - 1);
 		PtIDX += 1;
@@ -2896,6 +2961,19 @@ int GlobalMesh::sizingFunction(double currLen, vector<double> &mp,
 	CrackPtKD.findNeighbors(resultSet, query_pt, nanoflann::SearchParams(10));
 	double r = sqrt(out_dist_sqr);
 
+	// Check ahead or behind crack
+	// Check distance of current point and distance of adv point
+	vector<double> init_pnt = CrackPtcloud.crack_init_pt.at(ret_index);
+	vector<double> closest_cfn_pnt = CrackPtcloud.nodexyz.at(ret_index);
+	double r_cfn = sqrt( pow(init_pnt[0] - closest_cfn_pnt[0],2) + pow(init_pnt[1] - closest_cfn_pnt[1],2) );
+	double r_qyr = sqrt( pow(query_pt[0] - init_pnt[0],2) + pow(query_pt[1] - init_pnt[1],2) );
+
+	// cout << "init_pnt: " << init_pnt[0] << " " << init_pnt[1] << " " << init_pnt[2] << endl;
+	// cout << "closest_pnt: " << closest_pnt[0] << " " << closest_pnt[1] << " " << closest_pnt[2] << endl;
+	// cout << "query: " << query_pt[0] << " " << query_pt[1] << " " << query_pt[2] << endl;
+	// cout << r_cfn << " " << r_qyr << endl;
+
+	// exit(1); 
 	double ratio;
 
 	// Gradation method for voids
@@ -2906,35 +2984,65 @@ int GlobalMesh::sizingFunction(double currLen, vector<double> &mp,
 		Rt *= void_radius;
 	}
 
-	// Define refinement zone
-	if (r <= R0) {
-		// Refinement objective function
-		if (GS == 1) {
-			ratio = pow(r / R0, 3.);
-			Objective_Length = ratio * (OriginalEdge - MinEdge) + MinEdge;
-		} else if (GS == 2) {
-			Objective_Length = MinEdge;
+	if (GS == 1) {
+		// Define refinement zone
+		if (r <= R0) {
+			// Refinement objective function
+				ratio = pow(r / R0, settings->powerExp);
+				Objective_Length = ratio * (OriginalEdge - MinEdge) + MinEdge;
+			if (currLen > Objective_Length) {
+				return -1;
+			} // Refine
+			else
+				return 1; // Allow coarsening in the refinement region
 		} else {
-			cerr << "Gradation scheme unrecognized: " << GS << endl;
-			exit(1);
-		}
-		if (currLen > Objective_Length) {
-			return -1;
-		} // Refine
-		else
-			return 1; // Allow coarsening in the refinement region
-	} else {
-		ratio = min(1., abs(r - R0) / (Rt - R0));
-		Objective_Length = ratio * (MaxEdge - OriginalEdge) + OriginalEdge;
+			ratio = min(1., abs(r - R0) / (Rt - R0));
+			Objective_Length = ratio * (MaxEdge - OriginalEdge) + OriginalEdge;
 
-		if (currLen < Objective_Length) {
-			return 1;
-		} // Coarsen
+			if (currLen < Objective_Length) {
+				return 1;
+			} // Coarsen
+		}
+	}
+	else if (GS == 2) {
+		if ((r_qyr < r_cfn) && ( (r_cfn - r_qyr) < R0  ) ){
+			ratio = pow((r_cfn - r_qyr) / R0, settings->powerExp);
+			Objective_Length = ratio * (MaxEdge - MinEdge) + MinEdge;
+			if (currLen < Objective_Length) {
+				return 1;
+			} // Coarsen
+			else
+				return -1; // Allow coarsening in the refinement region
+		} else {
+			if (r <= R0) {
+				Objective_Length = MinEdge;
+
+			if (currLen > Objective_Length) {
+				return -1;
+			} // Refine
+			else
+				return 1; // Allow coarsening in the refinement region
+
+			} else {
+				ratio = min(1., abs(r - R0) / (Rt - R0));
+				Objective_Length = ratio * (MaxEdge - OriginalEdge) + OriginalEdge;
+
+				if (currLen < Objective_Length) {
+					return 1;
+				} // Coarsen
+			}
+
+
+
+		}
+	} else {
+		cerr << "Gradation scheme unrecognized: " << GS << endl;
+		exit(1);
 	}
 	return 0; // No operation
 }
 
-void GlobalMesh::writeMTR(string filename) {
+void GlobalMesh::writeMTR(string filename, string folder) {
 	size_t lastindex = filename.find_last_of(".");
 	string FilePath = filename.substr(0, lastindex);
 
@@ -2946,7 +3054,7 @@ void GlobalMesh::writeMTR(string filename) {
 	int LineIDX = 0;
 	int num_nodes = 0;
 
-	Node.open("stls/" + FilePath + ".1.node");
+	Node.open(folder + '/' + FilePath + ".1.node");
 	while (getline(Node, Line)) {
 		LineIDX += 1;
 		vector<string> tmp;
@@ -2975,7 +3083,7 @@ void GlobalMesh::writeMTR(string filename) {
 
 	// Write to mtr file
 	ofstream mtr;
-	mtr.open("stls/" + FilePath + ".1.mtr");
+	mtr.open(folder + '/' + FilePath + ".1.mtr");
 
 	mtr << num_nodes << "  1" << endl;
 	for (auto l : NodalEdgeLength) {
@@ -3031,9 +3139,11 @@ void GlobalMesh::RemoveFreeEdge(vector<vector<int> > &tmpFacet,
 				&& std::find(External_Edge.begin(), External_Edge.end(),
 						edge_name) == External_Edge.end()) {
 			tmpFacet.erase(tmpFacet.begin() + List[0]);
+		#if (COARSENDEBUG > 0)
 			cout
 					<< ">>> WARNING: Removed one facet with free edge, make sure you know what you are doing!"
 					<< endl;
+		#endif
 		}
 	}
 
@@ -3219,7 +3329,7 @@ void GlobalMesh::FixBoundary(ofstream &outfile) {
 	map<int, vector<double> >::iterator propNodeIter;
 
 	for ( int smooth_iter = 0 ; smooth_iter < N_smooth_iters ; smooth_iter ++ ){
-		cout << ">>> Smoothing iteration " << smooth_iter + 1 << endl;
+		outfile << ">>> Smoothing iteration " << smooth_iter + 1 << endl;
 		for (iter = nodeMap.begin(); iter != nodeMap.end(); iter++) {
 			int nid = iter->first;
 			set<int> myNeighbors = iter->second;
@@ -3276,13 +3386,178 @@ void GlobalMesh::FixBoundary(ofstream &outfile) {
 		for ( propNodeIter = proposedNodeCoords.begin() ; propNodeIter != proposedNodeCoords.end() ; propNodeIter ++ ){
 			nodes[ propNodeIter->first ] = propNodeIter->second;
 		}
-		cout << "	Adjusted " << proposedNodeCoords.size() << " node coordinates" << endl;
+		outfile << "	Adjusted " << proposedNodeCoords.size() << " node coordinates" << endl;
 
 		Processed_Nodes.clear();
 		proposedNodeCoords.clear();
 	}
 
 	outfile << ">>> Sawtooth edge smoothing done!" << endl;
+}
+
+void GlobalMesh::findNodeLimits(vector<double>& limits) {
+	// limits is a vector with: xmin, xmax, ymin, ymax, zmin, zmax
+	limits[0] = 1e16; limits[1] = -1e16; limits[2] = 1e16; limits[3] = -1e16; 
+	limits[4] = 1e16; limits[5] = -1e16;
+	for ( auto n : nodes ) {
+		vector<double> &xyz = n.second;
+		for ( int II = 0; II < 3; II++) {
+			if (xyz[II] > limits[1 + II*2]) { // Maxes
+				limits[1 + II*2] = xyz[II];
+			}
+			if (xyz[II] < limits[II*2]) {
+				limits[II*2] = xyz[II];
+			}
+		}
+	}
+}
+
+void GlobalMesh::findBoundaries(double distanceTolerance, double normalToleranceDeg) {
+	// Finds the boundaries of the global mesh (i.e. faces that BCs would be applied to)
+	// For each facet, gather the ones that only have one grain ID attached to them
+
+	vector<double> limits = {0,0,0,0,0,0};
+	this->findNodeLimits(limits);
+
+	set<int> surfaceFacets;
+	for ( auto f : facet2grain ){
+		int facetid = f.first;
+		set<int> &gids = f.second; 
+		if (gids.size() == 1 ) {
+			// We have a "surface facet"
+			// Due to coarsening operations FIDs may be deleted.
+			// Therefore, we need to check if the FID we're adding exists in globalfacets
+			if (globalFacets.count(facetid)) {
+				surfaceFacets.insert(facetid);
+			}
+			
+		}
+	}
+
+	// Now we have a list of facets, we need to sort them
+	// 0 - XMINUS
+	// 1 - XPLUS
+	// 2 - YMINUS
+	// 3 - YPLUS
+	// 4 - ZMINUS
+	// 5 - ZPLUS
+
+	for (int i = 0; i < 6; ++i) {
+		set<int> temp;
+		sideNodes.insert(pair<int, set<int> >(i, temp));
+	}
+	vector<double> normal = { 0, 0, 0 };
+	vector<double> comparativeNormal = { 0, 0, 0 };
+	
+	for (auto fid : surfaceFacets) {
+		// Get the nodes for the facets
+		vector<int> nids = globalFacets.at(fid);
+
+		vector<double> facetCentroid = {0,0,0};
+		for (auto n : nids) {
+			facetCentroid[0] += nodes.at(n)[0];
+			facetCentroid[1] += nodes.at(n)[1];
+			facetCentroid[2] += nodes.at(n)[2];
+		}
+		facetCentroid[0] /= double(nids.size());
+		facetCentroid[1] /= double(nids.size());
+		facetCentroid[2] /= double(nids.size());
+
+		// Get the facet normal
+		calculateFacetNormal(nids, normal);
+		// Determine the normal difference from the basis directions
+		// If it were possible, calculation of the normal based on the sign would be efficient
+		// However, facets can be loaded with incorrect ordering, and may not have their normals facing the right way
+		// So the comparison is made with positive and negative basis directions, and the sorting happens with the
+		// distance tolerance
+		
+		bool side = false;
+		// X - { 1, 0, 0 }
+		comparativeNormal[0] = 1; comparativeNormal[1] = 0; comparativeNormal[2] = 0;  
+		double xPlus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		// X - { -1, 0, 0 }
+		comparativeNormal[0] = -1; comparativeNormal[1] = 0; comparativeNormal[2] = 0;  		
+		double xMinus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		if ((xPlus < normalToleranceDeg) || (xMinus < normalToleranceDeg)) {
+			// If it's within the tolerance degree, now check distance between limits
+			// XMINUS
+			if ( abs(facetCentroid[0] - limits[0]) < distanceTolerance) {
+				for (auto n : nids) {
+					sideNodes.at(0).insert(n);
+				}
+				side = true;
+			}
+			// XPLUS
+			if ( abs(facetCentroid[0] - limits[1]) < distanceTolerance) {
+				for (auto n : nids) {
+					sideNodes.at(1).insert(n);
+				}
+				side = true;
+			}
+		}
+
+		// Y - { 0, 1, 0 }
+		comparativeNormal[0] = 0; comparativeNormal[1] = 1; comparativeNormal[2] = 0;  
+		double yPlus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		// Y - { 0, -1, 0 }
+		comparativeNormal[0] = 0; comparativeNormal[1] = -1; comparativeNormal[2] = 0;	
+		double yMinus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		if ((yPlus < normalToleranceDeg) || (yMinus < normalToleranceDeg)) {
+			// YMINUS
+			if ( abs(facetCentroid[1] - limits[2]) < distanceTolerance ) {
+				for (auto n : nids) {
+					sideNodes.at(2).insert(n);
+				}
+				side = true;
+			}
+			// YPLUS
+			if ( abs(facetCentroid[1] - limits[3]) < distanceTolerance ) {
+				for (auto n : nids) {
+					sideNodes.at(3).insert(n);
+				}
+				side = true;
+			}
+		}
+
+		// Z - { 0, 0, 1 }
+		comparativeNormal[0] = 0; comparativeNormal[1] = 0; comparativeNormal[2] = 1;  
+		double zPlus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		// Z - { 0, 0, -1 }
+		comparativeNormal[0] = 0; comparativeNormal[1] = 0; comparativeNormal[2] = -1;	
+		double zMinus = calculateAngleBetweenNormals(normal, comparativeNormal);
+		if ((zPlus < normalToleranceDeg) || (zMinus < normalToleranceDeg)) {
+			// ZMINUS
+			if ( abs(facetCentroid[2] - limits[4]) < distanceTolerance ) {
+				for (auto n : nids) {
+					sideNodes.at(4).insert(n);
+				}
+				side = true;
+			}
+			// ZPLUS
+			if ( abs(facetCentroid[2] - limits[5]) < distanceTolerance ) {
+				for (auto n : nids) {
+					sideNodes.at(5).insert(n);
+				}
+				side = true;
+			}
+		}
+
+		// If side is true:
+		if (side == true) {
+			for (auto n : nids) {
+				nodecloud.nodeID.push_back(n);
+				nodecloud.nodexyz.push_back(nodes.at(n));
+				nodeKD.addPoints(nodecloud.getSize() - 1, nodecloud.getSize() - 1);	
+			}
+		}
+	
+
+
+	}
+
+
+
+
 }
 
 } /* namespace std */

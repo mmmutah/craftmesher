@@ -96,6 +96,18 @@ void INPReader::writeINP(GlobalMesh &mesh, ofstream &logfile) {
 			outfile << els[e] << ",\n";
 		}
 	}
+
+	// Write the side sets if they arent empty
+	vector<string> sideSetNames = { "XMINUS", "XPLUS", "YMINUS", "YPLUS", "ZMINUS", "ZPLUS" };
+	typedef map<int, set<int> >::iterator it_type3;
+	for (it_type3 it = mesh.sideNodes.begin(); it != mesh.sideNodes.end(); it++) {
+		int sideSet = it->first;
+		outfile << "*Nset, nset=" << sideSetNames[sideSet] << "\n";
+		set<int> nids = it->second;
+		for (auto nid : nids) 
+			outfile << nid << ",\n";
+	}
+
 	logfile << ">>> Completed writing new elsets to INP file: " << inpout
 			<< endl;
 	outfile << "*End Part" << endl;
