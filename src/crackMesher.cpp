@@ -112,9 +112,9 @@ void enumerateStlFiles2(fs::path& folder, vector<fs::path>& out) {
 int main(int ac, char* av[]) {
 	string stlPath, cont_string, ref_string, advFilePath, settingsPath;
 
-	string version = "1.001";
+	string version = "1.000";
 
-
+	ofstream logfile("mesh.log");
 
 	int binary, smesh_ref, smesh_coarsen = 0;
 	try {
@@ -152,7 +152,6 @@ int main(int ac, char* av[]) {
 
 
 	programSettings settings;
-	ofstream logfile("mesh.log");
 	try {
 		settings.loadData(settingsPath);
 		stlPath = settings.stlsPath;
@@ -226,9 +225,9 @@ int main(int ac, char* av[]) {
 				test.writeSmshAndRead(folder.string());
 			}
 
-			//if (smesh_ref > 0 || smesh_coarsen > 0) {
+			if (smesh_ref > 0 || smesh_coarsen > 0) {
 				grains.push_back(test);
-			//}
+			}
 
 			// If we want to write the binary file, do it now
 			if (settings.writeBinarySave.length() > 0) {
@@ -274,9 +273,9 @@ int main(int ac, char* av[]) {
 
 			test.importBinary(in);
 
-			//if (smesh_ref > 0 || smesh_coarsen > 0) {
+			if (smesh_ref > 0 || smesh_coarsen > 0) {
 				grains.push_back(test);
-			//}
+			}
 
 			std::cout << "    [";
 			progress = double(i) / double(stlFiles.size());
@@ -341,18 +340,16 @@ int main(int ac, char* av[]) {
 	}
 
 	vector<Grain> grains2;
-
+	if ((smesh_coarsen > 0) || (smesh_ref > 0)) {
 		GlobalMesh mesh_surface(&settings);
 		mesh_surface.refine_iterations = smesh_ref;
 
 		// Build KD tree for gradation function
 
-	if ((smesh_coarsen > 0) || (smesh_ref > 0)) {
 		logfile << ">>> Undoing shrinking with a factor of "
 				<< mesh_surface.Undo_shrink_factorX << ","  << mesh_surface.Undo_shrink_factorY << "," << mesh_surface.Undo_shrink_factorZ << endl;
 
 		mesh_surface.BuildCrackFrontKD(advFilePath, logfile);
-	}
 	
 
 		for (uint i = 0; i < grains.size(); i++) {
@@ -375,7 +372,7 @@ int main(int ac, char* av[]) {
 
 		// First we do coarsening
 		if (smesh_coarsen > 0) {
-			cout << "    Performing " << smesh_coarsen  << " coarsening passes." << endl;
+			cout << "    Performing " << smesh_coarsen + 1 << " coarsening passes." << endl;
 			for (int rr = 0; rr < smesh_coarsen; rr++) {
 				logfile << "\n\n&&& Coarsening surface meshes: pass " << rr + 1 << "."
 						<< endl;
@@ -384,7 +381,7 @@ int main(int ac, char* av[]) {
 				astl.writeGlobalFacets(mesh_surface, astlname);
 
 				std::cout << "    [";
-				progress = double(rr+1) / double(smesh_coarsen);
+				progress = double(rr+1) / double(smesh_coarsen+1);
 				int pos = barWidth * progress;
 				for (int p = 0; p < barWidth; ++p) {
 					if (p < pos)
@@ -402,7 +399,7 @@ int main(int ac, char* av[]) {
 
 		// Then we do refinement
 		if (smesh_ref > 0) {
-			cout << "    Performing " << smesh_ref  << " refinement passes." << endl;
+			cout << "    Performing " << smesh_coarsen + 1 << " refinement passes." << endl;
 			for (int rr = 0; rr < smesh_ref; rr++) {
 				logfile << "\n\n&&& Refining surface meshes: pass " << rr + 1 << "."
 						<< endl;
@@ -410,7 +407,7 @@ int main(int ac, char* av[]) {
 				string astlname = "split" + to_string(rr + 1) + ".stl";
 				astl.writeGlobalFacets(mesh_surface, astlname);
 				std::cout << "    [";
-				progress = double(rr+1) / double(smesh_ref);
+				progress = double(rr+1) / double(smesh_ref+1);
 				int pos = barWidth * progress;
 				for (int p = 0; p < barWidth; ++p) {
 					if (p < pos)
@@ -428,11 +425,6 @@ int main(int ac, char* av[]) {
 
 		// Write the final, modified surface mesh 
 		astl.writeGlobalFacets(mesh_surface, "modified.stl");
-
-		// If we enabled boundary finding, find the boundary:
-		if (settings.sideNodeSets == 1) {
-			mesh_surface.findBoundaries(settings.distanceTolerance, settings.normalToleranceDeg);
-		}
 
 		// Now we have the surface mesh, let's separate the surface mesh such that we retain the grain ID
 		asciiSTL writer;
@@ -463,16 +455,8 @@ int main(int ac, char* av[]) {
 			std::cout << "] " << int(progress * 100.0) << " % (GID: "
 					<< test.giveRawGrainNumber() << ")               \r";
 			std::cout.flush();
-			int success;
-			try {
-				int success = test.writeBackGroundSmsh(folder.string(), settings);
-			}
-			catch (exception e) {
-				cout << "ERROR: Background mesh generation failed in crack mesher function writeBackGroundSmsh." 
-						<< endl;
-				exit(1);
-			}
-			
+
+			int success = test.writeBackGroundSmsh(folder.string(), settings);
 			if (success != 0) {
 				cout << "ERROR: Background mesh generation failed! Please check the surface mesh to make sure it is volume-meshable!"
 						<< endl;
@@ -480,9 +464,7 @@ int main(int ac, char* av[]) {
 			}
 
 			// Write mtr files
-			if ((smesh_ref > 0) and (smesh_coarsen > 0)) {
-				mesh_surface.writeMTR(stlFiles2[i].string(), folder.string());
-			}
+			mesh_surface.writeMTR(stlFiles2[i].string());
 
 		}
 		cout << endl;
@@ -527,6 +509,7 @@ int main(int ac, char* av[]) {
 		}
 
 
+	} 
 	cout << endl;
 	cout << "    Volume meshing complete!" << endl;
 	GlobalMesh mesh(&settings);
@@ -537,12 +520,6 @@ int main(int ac, char* av[]) {
 		logfile << current_kd_id << " \r";
 	}
 	logfile << endl;
-
-	// If we enabled boundary finding, translate side node sets into the global mesh
-	if (settings.sideNodeSets == 1) {
-		mesh.processBoundaryNodes(mesh_surface);
-	}
-
 	// After Going through each Surface Mesh, run through each grain
 	for (uint i = 0; i < grains2.size(); i++) {
 		int current_nid, current_eid;
@@ -551,8 +528,6 @@ int main(int ac, char* av[]) {
 				<< ", current max_eid_id: " << current_eid << ".\r";
 		cout.flush();
 	}
-
-
 	cout << endl;
 	logfile << ">>> Writing out Abaqus INP..." << endl;
 	INPReader out;
