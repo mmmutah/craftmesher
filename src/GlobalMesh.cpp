@@ -2961,12 +2961,12 @@ int GlobalMesh::sizingFunction(double currLen, vector<double> &mp,
 	CrackPtKD.findNeighbors(resultSet, query_pt, nanoflann::SearchParams(10));
 	double r = sqrt(out_dist_sqr);
 
-	// Check ahead or behind crack
-	// Check distance of current point and distance of adv point
-	vector<double> init_pnt = CrackPtcloud.crack_init_pt.at(ret_index);
-	vector<double> closest_cfn_pnt = CrackPtcloud.nodexyz.at(ret_index);
-	double r_cfn = sqrt( pow(init_pnt[0] - closest_cfn_pnt[0],2) + pow(init_pnt[1] - closest_cfn_pnt[1],2) );
-	double r_qyr = sqrt( pow(query_pt[0] - init_pnt[0],2) + pow(query_pt[1] - init_pnt[1],2) );
+	// // Check ahead or behind crack
+	// // Check distance of current point and distance of adv point
+	// vector<double> init_pnt = CrackPtcloud.crack_init_pt.at(ret_index);
+	// vector<double> closest_cfn_pnt = CrackPtcloud.nodexyz.at(ret_index);
+	// double r_cfn = sqrt( pow(init_pnt[0] - closest_cfn_pnt[0],2) + pow(init_pnt[1] - closest_cfn_pnt[1],2) );
+	// double r_qyr = sqrt( pow(query_pt[0] - init_pnt[0],2) + pow(query_pt[1] - init_pnt[1],2) );
 
 	// cout << "init_pnt: " << init_pnt[0] << " " << init_pnt[1] << " " << init_pnt[2] << endl;
 	// cout << "closest_pnt: " << closest_pnt[0] << " " << closest_pnt[1] << " " << closest_pnt[2] << endl;
@@ -2984,61 +2984,32 @@ int GlobalMesh::sizingFunction(double currLen, vector<double> &mp,
 		Rt *= void_radius;
 	}
 
-	if (GS == 1) {
-		// Define refinement zone
-		if (r <= R0) {
-			// Refinement objective function
-				ratio = pow(r / R0, settings->powerExp);
-				Objective_Length = ratio * (OriginalEdge - MinEdge) + MinEdge;
-			if (currLen > Objective_Length) {
-				return -1;
-			} // Refine
-			else
-				return 1; // Allow coarsening in the refinement region
-		} else {
-			ratio = min(1., abs(r - R0) / (Rt - R0));
-			Objective_Length = ratio * (MaxEdge - OriginalEdge) + OriginalEdge;
 
-			if (currLen < Objective_Length) {
-				return 1;
-			} // Coarsen
-		}
-	}
-	else if (GS == 2) {
-		if ((r_qyr < r_cfn) && ( (r_cfn - r_qyr) < R0  ) ){
-			ratio = pow((r_cfn - r_qyr) / R0, settings->powerExp);
-			Objective_Length = ratio * (MaxEdge - MinEdge) + MinEdge;
-			if (currLen < Objective_Length) {
-				return 1;
-			} // Coarsen
-			else
-				return -1; // Allow coarsening in the refinement region
-		} else {
-			if (r <= R0) {
-				Objective_Length = MinEdge;
+   // Define refinement zone
+   if (r <= R0) {
+          // Refinement objective function
+          if (GS == 1) {
+                 ratio = pow(r / R0, settings->powerExp);
+                 Objective_Length = ratio * (OriginalEdge - MinEdge) + MinEdge;
+          } else if (GS == 2) {
+                 Objective_Length = MinEdge;
+          } else {
+                 cerr << "Gradation scheme unrecognized: " << GS << endl;
+                 exit(1);
+          }
+          if (currLen > Objective_Length) {
+                 return -1;
+          } // Refine
+          else
+                 return 1; // Allow coarsening in the refinement region
+   } else {
+          ratio = min(1., abs(r - R0) / (Rt - R0));
+          Objective_Length = ratio * (MaxEdge - OriginalEdge) + OriginalEdge;
 
-			if (currLen > Objective_Length) {
-				return -1;
-			} // Refine
-			else
-				return 1; // Allow coarsening in the refinement region
-
-			} else {
-				ratio = min(1., abs(r - R0) / (Rt - R0));
-				Objective_Length = ratio * (MaxEdge - OriginalEdge) + OriginalEdge;
-
-				if (currLen < Objective_Length) {
-					return 1;
-				} // Coarsen
-			}
-
-
-
-		}
-	} else {
-		cerr << "Gradation scheme unrecognized: " << GS << endl;
-		exit(1);
-	}
+          if (currLen < Objective_Length) {
+                 return 1;
+          } // Coarsen
+   }
 	return 0; // No operation
 }
 
