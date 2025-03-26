@@ -17,8 +17,6 @@ AC_C_INLINE
 AC_FUNC_MALLOC
 AC_TYPE_SIZE_T
 
-AC_SUBST(AM_CXXFLAGS,"$OPENMP_CXXFLAGS")
-
 # Checks for libraries.
 AX_BOOST_BASE([1.48],, [AC_MSG_ERROR([This program needs Boost, but it was not found in your system])])
 AX_BOOST_SYSTEM
